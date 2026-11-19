@@ -12,7 +12,7 @@ No LLM ever decides whether a tool call is allowed. Agents, including AgentShiel
 
 ## Why
 
-Agents are moving from chat to action: they read tickets, query logs, open pull requests and restart services. The model is now part of the attack surface. A prompt injection in a retrieved document can make a well-behaved agent call a tool it should never touch. Research from [AgentRed](../AgentRed) showed that **controls enforced in code hold where prompt-level controls do not**. AgentShield is the production-shaped version of that lesson:
+Agents are moving from chat to action: they read tickets, query logs, open pull requests and restart services. The model is now part of the attack surface. A prompt injection in a retrieved document can make a well-behaved agent call a tool it should never touch. Research from [AgentRed](https://github.com/bee-honey/AgentRed) showed that **controls enforced in code hold where prompt-level controls do not**. AgentShield is the production-shaped version of that lesson:
 
 - Every agent has a **verifiable identity**, not a shared API key.
 - Every tool call is **authorized per call, per argument** against policy as code.
