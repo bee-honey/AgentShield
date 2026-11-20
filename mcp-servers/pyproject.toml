@@ -1,0 +1,25 @@
+[project]
+name = "agentshield-mockservers"
+version = "0.1.0"
+description = "Mock protected resources (MCP servers with synthetic data) for AgentShield"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=2.3,<3",
+    "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "anyio>=4"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["mockservers*"]
+
+[tool.setuptools.package-data]
+mockservers = ["fixtures/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

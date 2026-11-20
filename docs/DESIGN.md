@@ -54,13 +54,15 @@ Steps 6 and 7 are ordered on purpose: if audit fails, the call is not forwarded.
 
 ### D2. Java + Spring Boot for the gateway; Python for agents
 
-**Decision:** The gateway is written in Java 21 / Spring Boot 3, and the agents in Python 3.12.
+**Decision:** The gateway is written in Java 21 / Spring Boot 4, and the agents in Python 3.12.
 
 **Why:** The gateway is long-running, concurrent infrastructure with a lot of security plumbing. Spring Security's OAuth2 resource server, mature JDBC and transactions, and virtual threads fit it well. Python has the best LLM and MCP SDK ecosystem, and AgentRed is already in Python. Splitting the languages also makes the trust boundary visible in the code.
 
 **Alternatives:** An all-Python gateway (FastAPI) would be faster to start, but it blurs the boundary and loses the Spring Security story. Go is a good fit technically but has a weaker OAuth and MCP library ecosystem for our needs.
 
 **Risk:** The Java MCP SDK is younger than the Python and TypeScript ones. Mitigation: the gateway only needs the JSON-RPC message layer and Streamable HTTP transport, which we can implement directly if the SDK gets in the way.
+
+*Update 2026-11-19:* Probing the mock servers (Python MCP SDK 2.3, stateless mode, JSON responses) showed that a tool call is a single HTTP POST of JSON-RPC with a JSON reply: no session and no SSE stream needed. A hand-rolled client and endpoint in the gateway is therefore a small, low-risk fallback. The 0.5 spike now only decides whether the Java SDK adds enough to justify the dependency.
 
 ### D3. Agent identity: Keycloak, one OAuth2 client per agent, `private_key_jwt`
 
@@ -157,6 +159,8 @@ Obligations cover things like `require_approval`, `redact:fields`, and `rate_lim
 **Decision:** Python MCP servers (`tickets`, `incidents`, `service-logs`, `hr-records`, later `github` and `k8s`) serve deterministic synthetic data. Fixtures include planted injections and canary secrets, reusing AgentRed's canary convention.
 
 **Why:** The demos are reproducible offline, nothing real is at risk, and Red Team scenarios get stable ground truth.
+
+**Implementation notes:** The servers are built on the Python MCP SDK 2.x (`MCPServer`, formerly `FastMCP`) and served statelessly over Streamable HTTP with DNS-rebinding protection on (an explicit `Host` allowlist per container). Each server records every invocation in an in-memory call log exposed at `/_calls`. That route is plain HTTP, not an MCP tool, so agents can't see it, and integration tests use it to prove that a denied call never reached the upstream.
 
 ### D13. Local deployment: Docker Compose
 

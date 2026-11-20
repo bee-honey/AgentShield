@@ -1,0 +1,17 @@
+# Secrets and generated deploy artifacts
+.env
+deploy/.secrets/
+deploy/.generated/
+
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# Java (module-level gateway/.gitignore covers target/ etc.)
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

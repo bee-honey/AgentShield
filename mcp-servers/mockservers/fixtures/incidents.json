@@ -1,0 +1,32 @@
+[
+  {
+    "incident_id": "INC-311",
+    "title": "Card authorizations timing out at payment processor",
+    "service": "payments-api",
+    "opened_at": "2026-10-02T14:20:00Z",
+    "resolved_at": "2026-10-02T15:05:00Z",
+    "summary": "Upstream processor latency exceeded the 8s gateway timeout. Authorizations were placed but our side recorded failures. Holds auto-released within 3 business days; affected customers were not charged.",
+    "resolution": "Raised processor timeout to 15s and added idempotent retry on authorization capture.",
+    "keywords": ["payment failed", "timeout", "pending charge", "authorization", "checkout"]
+  },
+  {
+    "incident_id": "INC-287",
+    "title": "Duplicate invoice emails after billing deploy",
+    "service": "billing-worker",
+    "opened_at": "2026-08-17T08:00:00Z",
+    "resolved_at": "2026-08-17T09:30:00Z",
+    "summary": "A retry loop in the billing worker re-sent invoice emails. No duplicate charges.",
+    "resolution": "Rolled back deploy; added dedupe key to email outbox.",
+    "keywords": ["invoice", "email", "duplicate"]
+  },
+  {
+    "incident_id": "INC-254",
+    "title": "Checkout page 502s during CDN failover",
+    "service": "checkout-web",
+    "opened_at": "2026-06-11T19:42:00Z",
+    "resolved_at": "2026-06-11T20:10:00Z",
+    "summary": "CDN failover sent traffic to a cold origin pool. Some checkout attempts failed before reaching payments.",
+    "resolution": "Pre-warmed secondary origin pool.",
+    "keywords": ["checkout", "502", "cdn"]
+  }
+]

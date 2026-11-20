@@ -8,7 +8,26 @@ AgentShield sits between LLM-powered agents and the resources they act on. Every
 
 No LLM ever decides whether a tool call is allowed. Agents, including AgentShield's own security agents, can only propose actions; policy code makes the decision, and high-impact changes need a human's approval.
 
-> **Status:** design phase. Nothing runnable yet. See [docs/PLAN.md](docs/PLAN.md) for the roadmap.
+> **Status:** Phase 0 (foundations) in progress. The local stack runs, agents authenticate with `private_key_jwt`, and the schema and mock resources are in place. The gateway's MCP endpoint and the policies come next. See [docs/PLAN.md](docs/PLAN.md).
+
+## Quickstart
+
+Requires Docker, Java 21 and Python 3.12+.
+
+```bash
+make up            # creates .env, generates dev agent keys, starts the stack
+make token         # decoded access token for support-agent (AGENT=... for others)
+make test          # mock server tests + gateway tests (Testcontainers)
+make down          # stop (make clean also deletes data)
+```
+
+| Service | URL |
+|---|---|
+| Gateway | http://localhost:8090 (`GATEWAY_PORT` in `.env`) |
+| Keycloak | http://localhost:8180 (admin / see `.env`) |
+| OPA | http://localhost:8181 |
+| Jaeger | http://localhost:16686 |
+| Mock MCP servers (debug only) | http://localhost:9101–9104/mcp |
 
 ## Why
 
@@ -77,7 +96,7 @@ The Support, Developer and SRE agents **consume** AgentShield. The Security Anal
 
 | Concern | Choice |
 |---|---|
-| Gateway | Java 21, Spring Boot 3 |
+| Gateway | Java 21, Spring Boot 4 |
 | Agents | Python 3.12, a plain tool-calling loop with a model adapter (Claude by default; OpenAI and local models swappable) |
 | Tool protocol | MCP (Streamable HTTP) |
 | Agent identity | Keycloak (OAuth2 client credentials with `private_key_jwt`; token exchange for delegation) |

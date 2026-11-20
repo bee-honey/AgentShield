@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: agentshield-gateway
+  threads:
+    virtual:
+      enabled: true
+
+  # Runtime connections use the least-privilege app role.
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/agentshield}
+    username: ${DB_APP_USER:agentshield_app}
+    password: ${DB_APP_PASSWORD:app-dev-only}
+
+  # Migrations run as the schema owner; the app role never gets DDL rights.
+  flyway:
+    user: ${DB_OWNER_USER:agentshield_owner}
+    password: ${DB_OWNER_PASSWORD:owner-dev-only}
+    locations: classpath:db/migration
+    placeholders:
+      appRole: ${DB_APP_USER:agentshield_app}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Tokens are validated against the public issuer URL, but signing keys
+          # are fetched over the internal network (no discovery call at startup).
+          issuer-uri: ${OIDC_ISSUER:http://localhost:8180/realms/agentshield}
+          jwk-set-uri: ${OIDC_JWKS_URI:http://localhost:8180/realms/agentshield/protocol/openid-connect/certs}
+          audiences: agentshield-gateway
+
+agentshield:
+  opa:
+    url: ${OPA_URL:http://localhost:8181}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  flyway:
+    # Dev seed data: agents, tools, grants for the local demo.
+    locations: classpath:db/migration,classpath:db/seed

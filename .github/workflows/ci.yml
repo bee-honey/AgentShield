@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  mock-servers:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp-servers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Test (Testcontainers uses the runner's Docker)
+        working-directory: gateway
+        run: ./mvnw -B test
+
+  policies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Rego
+        run: docker run --rm -v "$PWD/policies:/policies:ro" openpolicyagent/opa:1.2.0 check /policies
+
+  deploy-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render realm and validate compose file
+        run: |
+          bash scripts/gen-agent-keys.sh
+          python3 -m json.tool deploy/.generated/keycloak/agentshield-realm.json > /dev/null
+          cp .env.example .env
+          docker compose --env-file .env -f deploy/docker-compose.yml config --quiet

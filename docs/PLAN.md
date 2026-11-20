@@ -10,17 +10,17 @@ Each phase ends with a **demo** that can be run with one command, and with **acc
 
 **Goal:** The secure path works end to end with a scripted (non-LLM) client.
 
-| # | Task | Notes |
-|---|---|---|
-| 0.1 | Repo skeleton, `deploy/docker-compose.yml`, Makefile, CI (GitHub Actions) | Postgres, Keycloak, OPA, Jaeger |
-| 0.2 | Keycloak realm export: `agentshield` realm, clients for `support-agent` and `security-analyst-agent`, `private_key_jwt` | D3 |
-| 0.3 | Postgres schema + migrations (Flyway): `agent`, `agent_grant`, `audit_event` (hash chain), `outbox`, `approval_request` | D6, D7, D8 |
-| 0.4 | Mock MCP servers: `tickets`, `incidents`, `service-logs`, `hr-records` with synthetic fixtures | D12 |
-| 0.5 | **Spike:** Java MCP SDK vs. hand-rolled Streamable HTTP JSON-RPC. Pick one and record it in DESIGN.md | D2 risk |
-| 0.6 | Gateway: JWT auth, tool registry and routing, `tools/list` filtering, `tools/call` → OPA → forward | D1 |
-| 0.7 | Rego policy v1: default deny, per-agent-type tool grants, argument constraints for `read_service_logs` + `opa test` | D4 |
-| 0.8 | Audit write + outbox in one transaction; fail closed if OPA or the DB is down | D6, D7 |
-| 0.9 | OTel instrumentation in the gateway; trace visible in Jaeger | D11 |
+| # | Task | Notes | Status |
+|---|---|---|---|
+| 0.1 | Repo skeleton, `deploy/docker-compose.yml`, Makefile, CI (GitHub Actions) | Postgres, Keycloak, OPA, Jaeger | ✅ |
+| 0.2 | Keycloak realm export: `agentshield` realm, clients for `support-agent` and `security-analyst-agent`, `private_key_jwt` | D3. Keys generated per checkout by `make keys` | ✅ |
+| 0.3 | Postgres schema + migrations (Flyway): `agent`, `agent_grant`, `audit_event` (hash chain), `outbox`, `approval_request` | D6, D7, D8. Owner/app role split, append-only triggers | ✅ |
+| 0.4 | Mock MCP servers: `tickets`, `incidents`, `service-logs`, `hr-records` with synthetic fixtures | D12 | ✅ |
+| 0.5 | **Spike:** Java MCP SDK vs. hand-rolled Streamable HTTP JSON-RPC. Pick one and record it in DESIGN.md | D2 risk (reduced, see D2 update) | |
+| 0.6 | Gateway: JWT auth, tool registry and routing, `tools/list` filtering, `tools/call` → OPA → forward | D1. JWT auth done | 🟡 |
+| 0.7 | Rego policy v1: default deny, per-agent-type tool grants, argument constraints for `read_service_logs` + `opa test` | D4 | |
+| 0.8 | Audit write + outbox in one transaction; fail closed if OPA or the DB is down | D6, D7 | |
+| 0.9 | OTel instrumentation in the gateway; trace visible in Jaeger | D11 | |
 
 **Demo:** `make demo-phase0`. A script authenticates as `support-agent`, calls an allowed tool (ALLOW, forwarded) and then `read_employee_records` (DENY), and prints the audit rows.
 
@@ -115,6 +115,6 @@ Each phase ends with a **demo** that can be run with one command, and with **acc
 
 ## Immediate next steps
 
-1. Phase 0.1–0.3: compose stack, Keycloak realm, schema.
-2. Phase 0.5 spike, run in parallel. Its outcome decides how the gateway is built.
-3. Phase 0.4 mock servers + fixtures for the flagship scenario.
+1. Phase 0.5 spike, then 0.6: the gateway MCP endpoint (`tools/list` filtering, `tools/call` → OPA → forward).
+2. Phase 0.7 Rego policy v1 with tests.
+3. Phase 0.8 audit hash chain + outbox, then the `make demo-phase0` script.

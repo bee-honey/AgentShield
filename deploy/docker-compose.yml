@@ -1,0 +1,131 @@
+# AgentShield local stack. Run via `make up` (generates agent keys + realm first).
+#
+# Host ports (all bound to 127.0.0.1):
+#   8090  gateway (GATEWAY_PORT)   8180  keycloak   8181  opa
+#   5433  postgres         16686 jaeger UI       4317/4318 OTLP
+#   9101-9104 mock MCP servers (debug only; agents must go through the gateway)
+name: agentshield
+
+x-mock-server: &mock-server
+  build:
+    context: ../mcp-servers
+  image: agentshield/mock-mcp-servers:dev
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=2)"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      AGENTSHIELD_OWNER_PASSWORD: ${AGENTSHIELD_OWNER_PASSWORD:?set in .env}
+      AGENTSHIELD_APP_PASSWORD: ${AGENTSHIELD_APP_PASSWORD:?set in .env}
+    volumes:
+      - ./postgres/init-roles.sh:/docker-entrypoint-initdb.d/10-init-roles.sh:ro
+      - pgdata:/var/lib/postgresql/data
+    ports: ["127.0.0.1:5433:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agentshield"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    command: ["start-dev", "--import-realm"]
+    restart: unless-stopped
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set in .env}
+      # Fixed frontend URL so tokens have the same `iss` whether requested from
+      # the host or from inside the compose network.
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./.generated/keycloak:/opt/keycloak/data/import:ro
+    ports: ["127.0.0.1:8180:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  opa:
+    image: openpolicyagent/opa:1.2.0
+    command:
+      - run
+      - --server
+      - --addr=0.0.0.0:8181
+      - --log-format=json
+      - --set=decision_logs.console=true
+      - --watch
+      - /policies
+    restart: unless-stopped
+    volumes:
+      - ../policies:/policies:ro
+    ports: ["127.0.0.1:8181:8181"]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+
+  mcp-tickets:
+    <<: *mock-server
+    command: ["python", "-m", "mockservers.tickets"]
+    environment:
+      MCP_ALLOWED_HOSTS: "mcp-tickets:*,localhost:*,127.0.0.1:*"
+    ports: ["127.0.0.1:9101:8000"]
+
+  mcp-incidents:
+    <<: *mock-server
+    command: ["python", "-m", "mockservers.incidents"]
+    environment:
+      MCP_ALLOWED_HOSTS: "mcp-incidents:*,localhost:*,127.0.0.1:*"
+    ports: ["127.0.0.1:9102:8000"]
+
+  mcp-service-logs:
+    <<: *mock-server
+    command: ["python", "-m", "mockservers.service_logs"]
+    environment:
+      MCP_ALLOWED_HOSTS: "mcp-service-logs:*,localhost:*,127.0.0.1:*"
+    ports: ["127.0.0.1:9103:8000"]
+
+  mcp-hr-records:
+    <<: *mock-server
+    command: ["python", "-m", "mockservers.hr_records"]
+    environment:
+      MCP_ALLOWED_HOSTS: "mcp-hr-records:*,localhost:*,127.0.0.1:*"
+    ports: ["127.0.0.1:9104:8000"]
+
+  gateway:
+    build:
+      context: ../gateway
+    image: agentshield/gateway:dev
+    restart: unless-stopped
+    depends_on:
+      postgres: {condition: service_healthy}
+      keycloak: {condition: service_healthy}
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/agentshield
+      DB_APP_PASSWORD: ${AGENTSHIELD_APP_PASSWORD}
+      DB_OWNER_PASSWORD: ${AGENTSHIELD_OWNER_PASSWORD}
+      OIDC_ISSUER: http://localhost:8180/realms/agentshield
+      OIDC_JWKS_URI: http://keycloak:8080/realms/agentshield/protocol/openid-connect/certs
+      OPA_URL: http://opa:8181
+      SPRING_PROFILES_ACTIVE: dev
+    ports: ["127.0.0.1:${GATEWAY_PORT:-8090}:8080"]
+
+volumes:
+  pgdata:
